@@ -15,3 +15,6 @@ Imports:
   grDevices
   ggplot2
   sp
+  cluster
+  dplyr
+  tidyr

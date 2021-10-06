@@ -20,6 +20,7 @@
 #' @return a modified object with boundary stored in
 #'         an object contour misc$cont
 #'         and create primary contexts
+#' @export
 createKDEBoundary = function(p.obj, cell.type = "Tumor"){
   if (cell.type %in% levels(p.obj$clusters$PCA$annot)){
     cnames <- names(p.obj$clusters$PCA$annot[
@@ -69,6 +70,7 @@ createKDEBoundary = function(p.obj, cell.type = "Tumor"){
 #' @param annotation.type.name name of the annotation object within pagoda object
 #' @param joint.type.name name of the object that would context specific annotation
 #' @return modified pagoda2 object
+#' @export
 computeJointContext <- function(
   p.obj,
   annotation.type.name = "annot",
@@ -108,6 +110,7 @@ computeJointContext <- function(
 #' @param mode if we _don't_ fix the centers of the contexts manually
 #'             they will be calculated
 #' @return a dataframe with the distance from the boundary
+#' @export
 get.inner.embedding <- function(
   r,
   tumor.center,
@@ -167,6 +170,7 @@ get.inner.embedding <- function(
 #' @param distance.from.boundary the distance from the boundary drawn from KDE
 #' @param pattern TODO: we have to get rid of multiple patterns
 #' @return a ggplot object
+#' @export
 plot.with.distance.boundary <- function(
   r,
   ctype.emb.df,
@@ -203,6 +207,7 @@ plot.with.distance.boundary <- function(
 #' @param distance.from.boundary the distance from the boundary drawn from KDE
 #' @param pattern TODO: we have to get rid of multiple patterns
 #' @return a ggplot object
+#' @export
 get.subset <- function(
   r,
   ctype.emb.df,
@@ -257,6 +262,7 @@ get.subset <- function(
 #' @param cell.groups a list of cell names with cell type with
 #'                    annotations
 #' @return return the collapsed `dgCMatrix` with gene x cell-types
+#' @export
 collapse.clusters <- function(counts,cell.groups) {
   cn <- intersect(names(cell.groups),colnames(counts))
   cell.groups <- as.factor(cell.groups[cn])
@@ -273,6 +279,7 @@ collapse.clusters <- function(counts,cell.groups) {
 #' @param cutoff the cutoff number of cells per gene type
 #' @param special.genes the special genes that are needed to be included
 #' @return
+#' @export
 construct.subset.profile <- function(
   r,
   r.raw,
@@ -328,6 +335,7 @@ construct.subset.profile <- function(
 #' @param special.genes the special genes that are needed to be included
 #' @return the collapsed profiles and the dataframe, distance, plots and
 #'         the cell names
+#' @export
 preparePseudoBulkProfile = function(
   r,
   r.raw,

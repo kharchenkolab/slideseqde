@@ -1,18 +1,9 @@
-# Hello, world!
-#
-# This is an example function named 'hello'
-# which prints 'Hello, world!'.
-#
-# You can learn more about package authoring with RStudio at:
-#
-#   http://r-pkgs.had.co.nz/
-#
-# Some useful keyboard shortcuts for package authoring:
-#
-#   Install Package:           'Ctrl + Shift + B'
-#   Check Package:             'Ctrl + Shift + E'
-#   Test Package:              'Ctrl + Shift + T'
-
+#' @import magrittr
+#' @import dplyr
+#' @import stringr
+#' @import ggplot2
+#' @import matrixStats
+NULL
 
 #' create KDE boundary for a pagoda object
 #' @param p.obj is a pagoda2 object
@@ -22,6 +13,7 @@
 #'         and create primary contexts
 #' @export
 createKDEBoundary = function(p.obj, cell.type = "Tumor"){
+  x = y = NULL
   if (cell.type %in% levels(p.obj$clusters$PCA$annot)){
     cnames <- names(p.obj$clusters$PCA$annot[
       p.obj$clusters$PCA$annot == cell.type]
@@ -76,6 +68,7 @@ computeJointContext <- function(
   annotation.type.name = "annot",
   joint.type.name = "jcontext"
 ){
+  context = NULL
   if( ((annotation.type.name %in% names(p.obj$clusters$PCA) ) &
        ("contexts" %in% names(p.obj$clusters$PCA)) )
   ){
@@ -100,8 +93,8 @@ computeJointContext <- function(
   }
 }
 
-#' inner embedding from the pagoda2 object
-#' @param pagoda2 object
+#' Get inner embedding from the pagoda2 object
+#' @param r pagoda2 object
 #' @param tumor.center coordinate for tentative center for the
 #'                     tumor context
 #' @param nontumor.center coordinate for tentative center for the
@@ -119,6 +112,7 @@ get.inner.embedding <- function(
   mode = "manual"
 ) {
 
+  context = xcoord = ycoord = x = y = NULL;
   if (!is.null(ctype)){
     cnames <- names( r$clusters$PCA$annot[r$clusters$PCA$annot == ctype] )
     ctype.emb.df <- data.frame(r$embeddings$PCA$physical[cnames,])
@@ -153,7 +147,7 @@ get.inner.embedding <- function(
 
   p2 <- r$misc$cont$data %>% dplyr::select(x,y)
 
-  ctype.emb.df$mindist <- rowMin( raster::pointDistance(p1, p2, lonlat=F) )
+  ctype.emb.df$mindist <- rowMins( raster::pointDistance(p1, p2, lonlat=F) )
   tumor.dist <- raster::pointDistance(tumor.p1, tumor.center,lonlat=F)
   non.tumor.dist <- raster::pointDistance(nontumor.p1, nontumor.center,lonlat=F)
 
@@ -168,16 +162,18 @@ get.inner.embedding <- function(
 #' @param ctype.emb.df the dataframe to be generated from
 #'                     `get.inner.embedding`
 #' @param distance.from.boundary the distance from the boundary drawn from KDE
+#' @param distance.from.center the distance from the center of the context region
 #' @param pattern TODO: we have to get rid of multiple patterns
 #' @return a ggplot object
 #' @export
-plot.with.distance.boundary <- function(
+plotWithDistanceBoundary <- function(
   r,
   ctype.emb.df,
   distance.from.boundary,
   distance.from.center=NULL,
   pattern="pattern1"
 ){
+  mindist = xcoord = ycoord = NULL;
   if(pattern == "pattern1"){
     p <- ggplot2::ggplot(
       ctype.emb.df %>% dplyr::filter(mindist > distance.from.boundary ) ,
@@ -205,6 +201,8 @@ plot.with.distance.boundary <- function(
 #' @param ctype.emb.df the dataframe to be generated from
 #'                     `get.inner.embedding`
 #' @param distance.from.boundary the distance from the boundary drawn from KDE
+#' @param distance.from.center denotes the distance for manually fixed centers
+#'                             in the respective context regions
 #' @param pattern TODO: we have to get rid of multiple patterns
 #' @return a ggplot object
 #' @export
@@ -215,6 +213,7 @@ get.subset <- function(
   distance.from.center=NULL,
   pattern = "pattern1"
 ){
+  mindist = Var1 = cell.type = Non_Tumor = Tumor = Freq = context = NULL
   if(pattern == "pattern1"){
     cnames <- ctype.emb.df %>%
       dplyr::filter(mindist > distance.from.boundary ) %>%
@@ -278,7 +277,7 @@ collapse.clusters <- function(counts,cell.groups) {
 #' @param cnames the cell names
 #' @param cutoff the cutoff number of cells per gene type
 #' @param special.genes the special genes that are needed to be included
-#' @return
+#' @return profiles
 #' @export
 construct.subset.profile <- function(
   r,
@@ -287,6 +286,7 @@ construct.subset.profile <- function(
   cutoff,
   special.genes = NULL
   ){
+  Var1 = cell.type = Non_Tumor = Tumor = NULL;
   ad.mix.ctypes <- table(r$clusters$PCA$jcontext.L2[cnames]) %>%
     data.frame %>%
     rename(cell.type=Var1) %>%
@@ -350,7 +350,7 @@ preparePseudoBulkProfile = function(
     nontumor.center
   )
 
-  p <- plot.with.distance.boundary(r, ctype.emb.df, distance.from.boundary)
+  p <- plotWithDistanceBoundary(r, ctype.emb.df, distance.from.boundary)
   subset <- get.subset(r, ctype.emb.df, distance.from.boundary)
   cnames <- subset$cnames
   p2 <- subset$barplot

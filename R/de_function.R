@@ -1,3 +1,8 @@
+#' @importFrom methods as
+#' @importFrom stats lm.fit
+#' @importFrom stats model.matrix
+NULL
+
 #' Context-dependent DE approximation using a linear model
 #'
 #' @param profiles either a matrix of profiles (columns - cell types, rows - genes)
@@ -6,8 +11,9 @@
 #' @param target2 name of the cell type in context 2 (e.g. Firboblast_Non_Tumor)
 #' @param de.method 'edgeR' (default) or 'DESeq2'
 #' @param default.bcv default value of
-#' @param gene.scale.function
-#' @param library.size.scale
+#' @param gene.scale.function function used in library scaling
+#' @param library.size.scale library size to scale default is 1e6
+#' @param remove.zeroes a flag to remove zeros
 #' @return
 #' @export
 getDifferentialExpression <- function(
@@ -15,7 +21,7 @@ getDifferentialExpression <- function(
   target1,
   target2,
   de.method='edgeR.qlf',
-  default.bcv=0.1 ,
+  default.bcv=0.1,
   gene.scale.function=sqrt ,
   library.size.scale=1e6,
   remove.zeroes=FALSE){
@@ -46,6 +52,9 @@ getDifferentialExpression <- function(
     # take common genes
     p <- t(t(p)/colSums(p)*library.size.scale)*gene.scaling
     m <- lm.fit( as.matrix(p[,colnames(p)!=target1]), p[,target1])
+    if(m$coefficients[[target2]] < 0){
+      stop(paste(target2,'has negative coefficients, might be caused by misannotation'))
+    }
   })
 
 
@@ -72,33 +81,33 @@ getDifferentialExpression <- function(
     storage.mode(mat.na) <- 'integer'
     meta <- data.frame(sample.id=colnames(mat),group=as.factor(rep(c('t1','t2'),length(ap))))
     group <- meta$group
-    y <- DGEList(counts=mat,group=group)
-    y <- calcNormFactors(y)
-    y.na <- DGEList(counts=mat.na,group=group)
-    y.na <- calcNormFactors(y.na)
+    y <- edgeR::DGEList(counts=mat,group=group)
+    y <- edgeR::calcNormFactors(y)
+    y.na <- edgeR::DGEList(counts=mat.na,group=group)
+    y.na <- edgeR::calcNormFactors(y.na)
     design <- model.matrix(~group)
     if(length(ap)==1) {
-      result <- exactTest(y,dispersion=default.bcv^2)
+      result <- edgeR::exactTest(y,dispersion=default.bcv^2)
       tt <- result$table;
-      result.na <- exactTest(y.na,dispersion=default.bcv^2)
+      result.na <- edgeR::exactTest(y.na,dispersion=default.bcv^2)
       tt.na <- result.na$table;
     } else {
       y <- edgeR::estimateDisp(y,design)
       y.na <- edgeR::estimateDisp(y.na,design)
       if(de.method=='edgeR.qlf') {
-        fit <- glmQLFit(y,design)
-        result <- glmQLFTest(fit,coef=2)
+        fit <- edgeR::glmQLFit(y,design)
+        result <- edgeR::glmQLFTest(fit,coef=2)
         tt <- result$table
         # non-adjusted
-        fit.na <- glmQLFit(y.na,design)
-        result.na <- glmQLFTest(fit.na,coef=2)
+        fit.na <- edgeR::glmQLFit(y.na,design)
+        result.na <- edgeR::glmQLFTest(fit.na,coef=2)
         tt.na <- result.na$table
       } else {
-        fit <- glmFit(y,design)
-        result <- glmLRT(fit,coef=2)
+        fit <- edgeR::glmFit(y,design)
+        result <- edgeR::glmLRT(fit,coef=2)
         tt <- result$table
-        fit.na <- glmFit(y.na,design)
-        result.na <- glmLRT(fit.na,coef=2)
+        fit.na <- edgeR::glmFit(y.na,design)
+        result.na <- edgeR::glmLRT(fit.na,coef=2)
         tt.na <- result.na$table
       }
     }

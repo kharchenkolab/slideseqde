@@ -1,3 +1,6 @@
+#' @import Matrix
+NULL
+
 #' Convert csv file to the sparse matrix
 #'
 #' @param d_table csv file to be read

@@ -1,0 +1,215 @@
+---
+title: "Slide Seq Differential expression"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{slideseqde}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(slideseqde)
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+dnl <- c(
+    'HP1' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_19/hg19.exonic+intronic/',# P1
+    'HP2' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_20/hg19.exonic+intronic/',# P1
+    'HP3' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_17/hg19.exonic+intronic/',# P2
+    'HP4' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_18/hg19.exonic+intronic/',# P2
+    'Benign01' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_21/hg19.exonic+intronic/',# P3
+    'Benign02' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_22/hg19.exonic+intronic/',# P3
+    'Tumor01' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_23/hg19.exonic+intronic/',# P3
+    'Tumor02' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_24/hg19.exonic+intronic/',# P3
+    'Tumor07' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_07/hg19.exonic+intronic/',# P4
+    'Tumor08' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_08/hg19.exonic+intronic/',# P4
+    'Benign03' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_03/hg19.exonic+intronic/',# P4
+    'Benign04' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_04/hg19.exonic+intronic/'# P4
+)
+cdl = lapply(dnl[c('Tumor01', 'Tumor02')],createSparseSpatialObjFromRCTD)
+objs = convertSpatialObj2Pagoda(cdl)
+```
+
+```{r}
+anno <- readRDS('~/Workplace/slide-seq-de/data/annotation/slide.seq.ano.v2.rds')
+
+```
+
+Add annotation to the data
+
+```{r}
+objs = updateSpatialInfo(objs, anno)
+```
+
+Add KDE boundary around Tumor cell type
+```{r}
+objs$cdl.p2$Tumor01 = createKDEBoundary(objs$cdl.p2$Tumor01)
+objs$cdl.p2$Tumor02 = createKDEBoundary(objs$cdl.p2$Tumor02)
+```
+
+Compute joint context
+```{r}
+objs$cdl.p2$Tumor01 = computeJointContext(
+    objs$cdl.p2$Tumor01,
+    annotation.type.name = "annot.L2",
+    joint.type.name = "jcontext.L2"
+)
+
+objs$cdl.p2$Tumor02 = computeJointContext(
+    objs$cdl.p2$Tumor02,
+    annotation.type.name = "annot.L2",
+    joint.type.name = "jcontext.L2"
+)
+```
+
+Compute marker genes
+```{r}
+marker.de <- lapply(objs$cdl.p2, function(p2){
+    p2$getDifferentialGenes(
+    type="PCA",clusterType="annot.L2",verbose=T,append.auc=T, upregulated.only=T)
+})
+```
+
+```{r}
+tumor.markers.01 = marker.de[['Tumor01']][['Tumor']] %>% arrange(-AUC) %>% rownames
+tumor.markers.02 = marker.de[['Tumor02']][['Tumor']] %>% arrange(-AUC) %>% rownames
+tumor.markers <- intersect(
+    marker.de[['Tumor01']][['Tumor']] %>% arrange(-AUC) %>% rownames,
+    marker.de[['Tumor02']][['Tumor']] %>% arrange(-AUC) %>% rownames
+)
+```
+
+
+
+Curate extra genes if necessary 
+```{r}
+angiogenesis.genes <- readLines(con <- file(
+    "/home/hsarkar/Workplace/slide-seq-de/data/de_results/angiogenesis.list"))
+
+emt.genes <- readLines(con <- file(
+    "/home/hsarkar/Workplace/slide-seq-de/data/de_results/emt.list"))
+
+lr.pairs = read.csv('/d0/home/meisl/Workplace/Prostate/healty.data/conos/F7.slide.seq/all.sig.csv')
+lr.genes = unique(union(lr.pairs$receptor , lr.pairs$ligand))
+
+
+extra.genes <- union(angiogenesis.genes, emt.genes)
+extra.genes <- union(extra.genes, lr.genes)
+```
+
+We want to subset the cells according to the distance from the boundary
+```{r}
+# Tumor01
+distance.subsets.01 = get.inner.embedding(objs$cdl.p2$Tumor01, 
+                                       tumor.center = c(4250, 3250),
+                                       nontumor.center = c(2000, 2500)
+                                    )
+
+distance.subsets.02 = get.inner.embedding(objs$cdl.p2$Tumor02, 
+                                       tumor.center = c(2500, 2700),
+                                       nontumor.center = c(4250, 3250)
+                                    )
+```
+
+Plot the with respect to a particular distance from the boundary
+```{r,fig.width=10, fig.height=4}
+distance.from.boundary = 350
+p1 = ggplot2::ggplot(
+        distance.subsets.01 %>% dplyr::filter(mindist > distance.from.boundary ),
+        aes(x=xcoord, y=ycoord, color=mindist)
+      ) +
+      ggtitle('Tumor01') +
+      ggplot2::geom_point(size=0.3)+
+      objs$cdl.p2$Tumor01$misc$cont
+
+p2 = ggplot2::ggplot(
+        distance.subsets.02 %>% dplyr::filter(mindist > distance.from.boundary ),
+        aes(x=xcoord, y=ycoord, color=mindist)
+      ) +
+      ggtitle('Tumor02') +
+      ggplot2::geom_point(size=0.3)+
+      objs$cdl.p2$Tumor02$misc$cont
+
+p1 | p2
+```
+
+
+If this distance is what we want subset cells with to remove the cells near the boundary we will make corrected profiles with this distance,
+
+```{r}
+profile.list = list()
+
+puck.profiles = lapply(c('Tumor01','Tumor02'),function(puck.name){
+    t1 <- objs$cdl.p2[[puck.name]]
+    t1.raw <- objs$cdl[[puck.name]]
+    
+    if(puck.name == "Tumor01"){
+      tumor.center = c(4250, 3250)
+      nontumor.center = c(2000, 2500)
+    }else{
+      tumor.center <- c(2500, 2700)
+      nontumor.center <- c(4250, 3250)
+    }
+    
+    preparePseudoBulkProfile(
+        t1,
+        t1.raw,
+        distance.from.boundary, 
+        tumor.center,
+        nontumor.center,
+        extra.genes
+    )
+})
+names(puck.profiles) = c('Tumor01','Tumor02')
+profile.list[[1]] = as.matrix(puck.profiles[['Tumor01']]$rprofile)
+profile.list[[2]] = as.matrix(puck.profiles[['Tumor02']]$rprofile)
+```
+
+
+
+Computing the DE for different cell types
+```{r}
+target_ctypes = c(
+    'Endothelial cells-2',
+    'Pericytes-2',
+    'Fibroblasts',
+    'Epithelial_Hillock',
+    'Epithelial_Club',
+    'Macrophage'   
+)
+
+multi.de.res =  lapply(target_ctypes, function(target){
+        print(target)
+        target1 = paste(target, 'Tumor', sep='_')
+        target2 = paste(target, 'Non_Tumor', sep='_')
+        de.res = getDifferentialExpression(profile.list, target1, target2,
+                                 de.method = 'edgeR.lrt')
+        if(is.null(de.res)){
+          return(NULL)
+        }
+        de.plot = scatterPlotWithCorrection(de.res, intersect(tumor.markers.01,
+                                                        tumor.markers.02)[1:50],
+                                                       target,20)
+        # rownames(pvals.filtered) = 1:nrow(pvals.filtered)
+        list(de.res = de.res, 
+             scatter.plot = de.plot
+        )
+      }
+)
+names(multi.de.res) = target_ctypes
+```
+
+Plot a cell-type to show the effect of correction
+```{r}
+multi.de.res$`Endothelial cells-2`$scatter.plot
+```

@@ -16,6 +16,7 @@ Imports:
     dplyr,
     edgeR,
     ggplot2,
+    ggrepel,
     grDevices,
     ks,
     magrittr,
@@ -23,6 +24,7 @@ Imports:
     matrixStats,
     methods,
     pagoda2,
+    patchwork,
     raster,
     reshape2,
     sccore,
@@ -31,3 +33,7 @@ Imports:
     stringr,
     tidyr
 RoxygenNote: 7.1.2
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr

@@ -5,16 +5,16 @@
 \title{adding the cell type annotation in the pagoda objects
 call `convertSpatialObj2Pagoda` before calling this function}
 \usage{
-updateSpatialInfo(cdl, cdl.p2, anno)
+updateSpatialInfo(obj, anno)
 }
 \arguments{
-\item{cdl}{a list of SparseSpatial}
-
-\item{cdl.p2}{a list of pagoda2 objects made from `convertSpatialObj2Pagoda`}
-
 \item{anno}{an R object containing the annotation file
 it assumes a specific format for now and
 TODO: we need to change this and make more generic}
+
+\item{cdl}{a list of SparseSpatial}
+
+\item{cdl.p2}{a list of pagoda2 objects made from `convertSpatialObj2Pagoda`}
 }
 \value{
 a modified pagoda object with the positions and

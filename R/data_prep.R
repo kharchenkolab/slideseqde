@@ -67,10 +67,11 @@ createSparseSpatialObj = function(gene.matrix.file, location.file){
 #' before calling this function
 #' @param cdl a list of SparseSpatialObj objects with names
 #'
-#' @return a list of two objects
+#' @return a list of containing two objects,
 #'         object 1 is a list of SparseSpatial objects with modified
 #'         names, it contains the raw counts
 #'         object 2 is a list of pagoda2 objects
+#' @export
 convertSpatialObj2Pagoda = function(cdl){
   cdl <- lapply(cdl,function(z) {
     x <- pagoda2::gene.vs.molecule.cell.filter(z$cm,min.cell.size = 100)
@@ -99,21 +100,22 @@ convertSpatialObj2Pagoda = function(cdl){
        #min.cells.per.gene =20,
        min.transcripts.per.cell = 100
   ))
-
-  list(cdl = cdl, cdl.p2 = cdl.p2)
+  list(cdl=cdl, cdl.p2=cdl.p2)
 }
 
 #' adding the cell type annotation in the pagoda objects
 #' call `convertSpatialObj2Pagoda` before calling this function
-#' @param cdl a list of SparseSpatial
-#' @param cdl.p2 a list of pagoda2 objects made from `convertSpatialObj2Pagoda`
+#' @param obj an object containing the spatial spatial objects
 #' @param anno an R object containing the annotation file
 #'        it assumes a specific format for now and
 #'        TODO: we need to change this and make more generic
 #' @return a modified pagoda object with the positions and
 #'         spatial positions
-updateSpatialInfo = function(cdl,cdl.p2,anno){
-  mapply(
+#' @export
+updateSpatialInfo = function(obj, anno){
+  cdl = obj$cdl
+  cdl.p2 = obj$cdl.p2
+  obj$cdl.p2 = mapply(
     function(p2,x) {
       p2$embeddings$PCA$physical <- as.matrix(x$pos[,c(2,3)]);
       rownames(p2$embeddings$PCA$physical) <- x$pos[,1];
@@ -132,4 +134,5 @@ updateSpatialInfo = function(cdl,cdl.p2,anno){
     cdl.p2,
     cdl
   )
+  obj
 }

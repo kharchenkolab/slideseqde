@@ -2,6 +2,7 @@
 #' @import dplyr
 #' @import stringr
 #' @import ggplot2
+#' @import patchwork
 #' @import matrixStats
 NULL
 
@@ -176,8 +177,9 @@ plotWithDistanceBoundary <- function(
   mindist = xcoord = ycoord = NULL;
   if(pattern == "pattern1"){
     p <- ggplot2::ggplot(
-      ctype.emb.df %>% dplyr::filter(mindist > distance.from.boundary ) ,
-      aes(x=xcoord, y=ycoord, color=mindist)) +
+        ctype.emb.df %>% dplyr::filter(mindist > distance.from.boundary ),
+        aes(x=xcoord, y=ycoord, color=mindist)
+      ) +
       ggplot2::geom_point(size=0.3)+
       r$misc$cont
   }else{

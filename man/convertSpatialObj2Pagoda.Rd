@@ -12,7 +12,7 @@ convertSpatialObj2Pagoda(cdl)
 \item{cdl}{a list of SparseSpatialObj objects with names}
 }
 \value{
-a list of two objects
+a list of containing two objects,
         object 1 is a list of SparseSpatial objects with modified
         names, it contains the raw counts
         object 2 is a list of pagoda2 objects

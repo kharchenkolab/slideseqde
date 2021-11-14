@@ -14,6 +14,8 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Imports
+
 ```{r setup}
 library(slideseqde)
 library(dplyr)
@@ -22,7 +24,8 @@ library(RCTD)
 library(Matrix)
 ```
 
-Functions to prepare reference for RCTD
+# RCTD to deconvolv and transfer annotation
+## Functions to prepare reference for RCTD
 
 Prepare Reference
 ```{r}
@@ -55,18 +58,18 @@ make.RCTD.reference = function(refdir){
 ```
 
 
-
+## Make the rctd reference
 ```{r}
 rctd.reference =  make.RCTD.reference('~/Workplace/slide-seq-de/shenglin_raw_data/scRNA.refernece')
 ```
-Epithelial reference
+## Make the rctd  Epithelial reference
 ```{r}
 rctd.epi.reference =  make.RCTD.reference('~/Workplace/slide-seq-de/shenglin_raw_data/epi/ano.epi')
 ```
 
 
 
-Load Spatial Data
+## Load Spatial Data
 ```{r}
 dnl <- c(
     'Tumor01' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_23/hg19.exonic+intronic/',# P3
@@ -76,7 +79,7 @@ cdl = lapply(dnl[c('Tumor01', 'Tumor02')],createSparseSpatialObjFromRCTD)
 ```
 
 
-Make RCTD spatial dataset
+## Make RCTD spatial dataset
 ```{r}
 make.RCTD.spatial = function(spatial.obj, selected.barcodes = NULL){
   counts = as.matrix(spatial.obj$cm)
@@ -93,7 +96,7 @@ make.RCTD.spatial = function(spatial.obj, selected.barcodes = NULL){
 }
 ```
 
-SpatialRNA call
+## SpatialRNA call
 ```{r}
 RCTD.pucks = lapply(cdl, make.RCTD.spatial)
 ```
@@ -143,6 +146,8 @@ epi.myRCTD <- lapply(epi.myRCTD, function(puck) {run.RCTD(puck, doublet_mode = '
 names(epi.myRCTD) = c('Tumor01','Tumor02')
 ```
 
+# Create annotation for spatial data
+
 Add this annotation to the existing annotation 
 ```{r}
 annotation.RCTD = lapply(c('Tumor01','Tumor02'), function(puck.name){
@@ -156,8 +161,8 @@ annotation.RCTD = lapply(c('Tumor01','Tumor02'), function(puck.name){
 #names(annotation.RCTD) = c('Tumor01','Tumor02')
 ```
 
-
-
+# Process spatial data
+## Covert the Spatial RNA-seq to spatial object
 
 Covert to pagoda objects
 ```{r}
@@ -165,16 +170,18 @@ objs = convertSpatialObj2Pagoda(cdl)
 ```
 
 ```{r}
-anno <- readRDS('~/Workplace/slide-seq-de/data/annotation/slide.seq.ano.v2.rds')
+# anno <- readRDS('~/Workplace/slide-seq-de/data/annotation/slide.seq.ano.v2.rds')
 ```
 
-
+## Assign RCTD annotations
 ```{r}
+saveRDS(annotation.RCTD.all, '~/Workplace/slide-seq-de/data/annotation/annotation_RCTD_all.rds')
+annotation.RCTD.all = do.call(c, annotation.RCTD)
 objs = updateSpatialInfoCustom(objs, annotation.RCTD.all)
 #objs = updateSpatialInfo(objs, anno)
-```
+``` 
 
-Add KDE boundary around Tumor cell type
+## Add KDE boundary around Tumor cell type to create
 ```{r}
 objs$cdl.p2$Tumor01 = createKDEBoundary(objs$cdl.p2$Tumor01)
 objs$cdl.p2$Tumor02 = createKDEBoundary(objs$cdl.p2$Tumor02)
@@ -206,7 +213,7 @@ marker.de <- lapply(objs$cdl.p2, function(p2){
     type="PCA",clusterType="annot",verbose=T,append.auc=T, upregulated.only=T)
 })
 ```
-
+## Get tumor markers
 ```{r}
 tumor.markers.01 = marker.de[['Tumor01']][['Tumor']] %>% arrange(-AUC) %>% rownames
 tumor.markers.02 = marker.de[['Tumor02']][['Tumor']] %>% arrange(-AUC) %>% rownames
@@ -218,7 +225,7 @@ tumor.markers <- intersect(
 
 
 
-Curate extra genes if necessary 
+## Keep extra genes
 ```{r}
 angiogenesis.genes <- readLines(con <- file(
     "/home/hsarkar/Workplace/slide-seq-de/data/de_results/angiogenesis.list"))
@@ -248,6 +255,7 @@ distance.subsets.02 = get.inner.embedding(objs$cdl.p2$Tumor02,
                                     )
 ```
 
+Create a distance
 Plot the with respect to a particular distance from the boundary
 ```{r,fig.width=10, fig.height=4}
 distance.from.boundary = 350
@@ -271,7 +279,7 @@ p1 | p2
 ```
 
 
-If this distance is what we want subset cells with to remove the cells near the boundary we will make corrected profiles with this distance,
+If this distance is what we want, subset cells with to remove the cells near the boundary we will make corrected profiles with this distance,
 ```{r}
 profile.list = list()
 distance.from.boundary=350
@@ -303,7 +311,8 @@ profile.list[[2]] = as.matrix(puck.profiles[['Tumor02']]$rprofile)
 
 
 
-Computing the DE for different cell types
+# Computing the DE for different cell types
+## Use BVLS
 ```{r}
 target_ctypes = c(
     'Pericytes',
@@ -333,7 +342,7 @@ multi.de.res =  lapply(target_ctypes, function(target){
 names(multi.de.res) = target_ctypes
 ```
 
-Plot a cell-type to show the effect of correction "Fibroblasts"
+# Plot the DE correction the "Fibroblasts"
 ```{r}
 multi.de.res$Fibroblasts$scatter.plot
 ```

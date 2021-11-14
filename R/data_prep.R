@@ -136,3 +136,33 @@ updateSpatialInfo = function(obj, anno){
   )
   obj
 }
+
+#' adding the cell type annotation in the pagoda objects
+#' call `convertSpatialObj2Pagoda` before calling this function
+#' @param obj an object containing the spatial spatial objects
+#' @param anno an R object containing the annotation file
+#'        it assumes a specific format for now and
+#'        TODO: we need to change this and make more generic
+#' @return a modified pagoda object with the positions and
+#'         spatial positions
+#' @export
+updateSpatialInfoCustom = function(obj, anno){
+  cdl = obj$cdl
+  cdl.p2 = obj$cdl.p2
+  obj$cdl.p2 = mapply(
+    function(p2,x) {
+      p2$embeddings$PCA$physical <- as.matrix(x$pos[,c(2,3)]);
+      rownames(p2$embeddings$PCA$physical) <- x$pos[,1];
+      p2$embeddings$PCA$physical <- p2$embeddings$PCA$physical[
+        rownames(p2$embeddings$PCA$physical) %in% rownames(p2$counts),
+      ];
+      tmp.anot <- as.factor(anno[intersect(rownames(p2$counts),
+                                           names(anno))]);
+      p2$clusters$PCA$annot <- tmp.anot;
+      p2
+    },
+    cdl.p2,
+    cdl
+  )
+  obj
+}

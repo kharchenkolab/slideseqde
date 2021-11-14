@@ -18,37 +18,160 @@ knitr::opts_chunk$set(
 library(slideseqde)
 library(dplyr)
 library(ggplot2)
+library(RCTD)
+library(Matrix)
+```
+
+Functions to prepare reference for RCTD
+
+Prepare Reference
+```{r}
+# refdir = '~/Workplace/slide-seq-de/shenglin_raw_data/scRNA.refernece'
+make.RCTD.reference = function(refdir){
+  dge_file = file.path(refdir, "dge.rds")
+  raw.data= readRDS(dge_file)
+  
+  meta_data = read.csv(file.path(refdir,"meta_data.csv"))
+  rownames(meta_data) = meta_data$barcode
+  
+  common_barcodes = intersect(colnames(raw.data), rownames(meta_data))
+  raw.data = raw.data[, common_barcodes]
+  meta_data = meta_data[common_barcodes, ]
+  
+  cell_dict = read.csv(paste(refdir, "cell_type_dict.csv", sep = "/"))
+  colnames(cell_dict) = c('cluster','cluster_name')
+  meta_data = inner_join(meta_data, cell_dict)
+  cell_types = meta_data$cluster_name
+  names(cell_types) = meta_data$barcode
+  
+  cell_types = as.factor(cell_types)
+  nUMI = meta_data$nUMI
+  names(nUMI) = meta_data$barcode
+  
+  reference <- Reference(raw.data, cell_types, nUMI)
+  reference
+}
+
 ```
 
 
+
+```{r}
+rctd.reference =  make.RCTD.reference('~/Workplace/slide-seq-de/shenglin_raw_data/scRNA.refernece')
+```
+Epithelial reference
+```{r}
+rctd.epi.reference =  make.RCTD.reference('~/Workplace/slide-seq-de/shenglin_raw_data/epi/ano.epi')
+```
+
+
+
+Load Spatial Data
 ```{r}
 dnl <- c(
-    'HP1' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_19/hg19.exonic+intronic/',# P1
-    'HP2' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_20/hg19.exonic+intronic/',# P1
-    'HP3' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_17/hg19.exonic+intronic/',# P2
-    'HP4' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_18/hg19.exonic+intronic/',# P2
-    'Benign01' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_21/hg19.exonic+intronic/',# P3
-    'Benign02' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_22/hg19.exonic+intronic/',# P3
     'Tumor01' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_23/hg19.exonic+intronic/',# P3
-    'Tumor02' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_24/hg19.exonic+intronic/',# P3
-    'Tumor07' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_07/hg19.exonic+intronic/',# P4
-    'Tumor08' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_08/hg19.exonic+intronic/',# P4
-    'Benign03' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_03/hg19.exonic+intronic/',# P4
-    'Benign04' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-10-18_Puck_200710_04/hg19.exonic+intronic/'# P4
+    'Tumor02' = '~/Workplace/slide-seq-de/shenglin_raw_data/2020-11-25_Puck_201014_24/hg19.exonic+intronic/'# P3
 )
 cdl = lapply(dnl[c('Tumor01', 'Tumor02')],createSparseSpatialObjFromRCTD)
+```
+
+
+Make RCTD spatial dataset
+```{r}
+make.RCTD.spatial = function(spatial.obj, selected.barcodes = NULL){
+  counts = as.matrix(spatial.obj$cm)
+  coords = spatial.obj$pos
+  rownames(coords) = coords$barcodes
+  coords$barcodes = NULL
+  if(!is.null(selected.barcodes)){
+    counts = counts[,selected.barcodes]
+    coords = coords[selected.barcodes,]
+  }
+  nUMI <- colSums(counts)
+  puck <- RCTD::SpatialRNA(coords, counts, nUMI)
+  puck
+}
+```
+
+SpatialRNA call
+```{r}
+RCTD.pucks = lapply(cdl, make.RCTD.spatial)
+```
+
+```{r}
+myRCTD <- lapply(RCTD.pucks, function(puck) {create.RCTD(puck, rctd.reference, max_cores = 10)})
+```
+
+```{r}
+myRCTD <- lapply(myRCTD, function(puck) {run.RCTD(puck, doublet_mode = 'doublet')})
+```
+
+Store RCTD 
+```{r}
+saveRDS(myRCTD, '~/Workplace/slide-seq-de/shenglin_raw_data/my_RCTD.rds')
+```
+
+Results from RCTD
+```{r}
+results = myRCTD$Tumor01@results
+norm_weights = sweep(results$weights, 1, Matrix::rowSums(results$weights), '/')
+cell_type_names <- myRCTD$Tumor01@cell_type_info$info[[2]] #list of cell type names
+spatialRNA <- myRCTD$Tumor01@spatialRNA
+```
+Find out doublets
+```{r}
+doublets <- results$results_df[results$results_df$spot_class == "doublet_certain",]
+doub_occur <- table(doublets$second_type, doublets$first_type)
+```
+Second level Annotation
+Take out the `Epithelial Cells`
+Certain Epithelial cells and singlets
+```{r}
+RCTD.epi.pucks = lapply(c('Tumor01','Tumor02'), function(puck.name)  {
+  results = myRCTD[[puck.name]]@results
+  epi.barcodes = results$results_df %>% dplyr::filter(first_type == 'Epitheial') %>% rownames
+  spatial.obj = cdl[[puck.name]]
+  make.RCTD.spatial(spatial.obj, epi.barcodes)
+})
+```
+Second level Run 
+```{r}
+epi.myRCTD <- lapply(RCTD.epi.pucks, function(puck) {create.RCTD(puck, rctd.epi.reference, max_cores = 10)})
+epi.myRCTD <- lapply(epi.myRCTD, function(puck) {run.RCTD(puck, doublet_mode = 'doublet')})
+```
+```{r}
+names(epi.myRCTD) = c('Tumor01','Tumor02')
+```
+
+Add this annotation to the existing annotation 
+```{r}
+annotation.RCTD = lapply(c('Tumor01','Tumor02'), function(puck.name){
+  prev.res = myRCTD[[puck.name]]@results$results_df %>%  dplyr::filter(first_type != 'Epitheial')
+  new_res = rbind(prev.res, epi.myRCTD[[puck.name]]@results$results_df )
+  new_res = new_res %>% dplyr::filter((spot_class == 'singlet') || (spot_class == 'doublet_certain'))
+  anno = as.factor(new_res$first_type)
+  names(anno) = paste(puck.name ,rownames(new_res),sep = '_')
+  anno
+})
+#names(annotation.RCTD) = c('Tumor01','Tumor02')
+```
+
+
+
+
+Covert to pagoda objects
+```{r}
 objs = convertSpatialObj2Pagoda(cdl)
 ```
 
 ```{r}
 anno <- readRDS('~/Workplace/slide-seq-de/data/annotation/slide.seq.ano.v2.rds')
-
 ```
 
-Add annotation to the data
 
 ```{r}
-objs = updateSpatialInfo(objs, anno)
+objs = updateSpatialInfoCustom(objs, annotation.RCTD.all)
+#objs = updateSpatialInfo(objs, anno)
 ```
 
 Add KDE boundary around Tumor cell type
@@ -59,24 +182,28 @@ objs$cdl.p2$Tumor02 = createKDEBoundary(objs$cdl.p2$Tumor02)
 
 Compute joint context
 ```{r}
-objs$cdl.p2$Tumor01 = computeJointContext(
-    objs$cdl.p2$Tumor01,
-    annotation.type.name = "annot.L2",
-    joint.type.name = "jcontext.L2"
-)
+# objs$cdl.p2$Tumor01 = computeJointContext(
+#     objs$cdl.p2$Tumor01,
+#     annotation.type.name = "annot.L2",
+#     joint.type.name = "jcontext.L2"
+# )
+# 
+# objs$cdl.p2$Tumor02 = computeJointContext(
+#     objs$cdl.p2$Tumor02,
+#     annotation.type.name = "annot.L2",
+#     joint.type.name = "jcontext.L2"
+# )
 
-objs$cdl.p2$Tumor02 = computeJointContext(
-    objs$cdl.p2$Tumor02,
-    annotation.type.name = "annot.L2",
-    joint.type.name = "jcontext.L2"
-)
+objs$cdl.p2$Tumor01 = computeJointContext(objs$cdl.p2$Tumor01)
+
+objs$cdl.p2$Tumor02 = computeJointContext(objs$cdl.p2$Tumor02)
 ```
 
 Compute marker genes
 ```{r}
 marker.de <- lapply(objs$cdl.p2, function(p2){
     p2$getDifferentialGenes(
-    type="PCA",clusterType="annot.L2",verbose=T,append.auc=T, upregulated.only=T)
+    type="PCA",clusterType="annot",verbose=T,append.auc=T, upregulated.only=T)
 })
 ```
 
@@ -145,10 +272,9 @@ p1 | p2
 
 
 If this distance is what we want subset cells with to remove the cells near the boundary we will make corrected profiles with this distance,
-
 ```{r}
 profile.list = list()
-
+distance.from.boundary=350
 puck.profiles = lapply(c('Tumor01','Tumor02'),function(puck.name){
     t1 <- objs$cdl.p2[[puck.name]]
     t1.raw <- objs$cdl[[puck.name]]
@@ -161,7 +287,7 @@ puck.profiles = lapply(c('Tumor01','Tumor02'),function(puck.name){
       nontumor.center <- c(4250, 3250)
     }
     
-    preparePseudoBulkProfile(
+    slideseqde::preparePseudoBulkProfile(
         t1,
         t1.raw,
         distance.from.boundary, 
@@ -180,11 +306,9 @@ profile.list[[2]] = as.matrix(puck.profiles[['Tumor02']]$rprofile)
 Computing the DE for different cell types
 ```{r}
 target_ctypes = c(
-    'Endothelial cells-2',
-    'Pericytes-2',
+    'Pericytes',
     'Fibroblasts',
-    'Epithelial_Hillock',
-    'Epithelial_Club',
+    'Endothelial',
     'Macrophage'   
 )
 
@@ -192,7 +316,7 @@ multi.de.res =  lapply(target_ctypes, function(target){
         print(target)
         target1 = paste(target, 'Tumor', sep='_')
         target2 = paste(target, 'Non_Tumor', sep='_')
-        de.res = getDifferentialExpression(profile.list, target1, target2,
+        de.res =  slideseqde::getDifferentialExpressionBVLS(profile.list, target1, target2,
                                  de.method = 'edgeR.lrt')
         if(is.null(de.res)){
           return(NULL)
@@ -209,7 +333,8 @@ multi.de.res =  lapply(target_ctypes, function(target){
 names(multi.de.res) = target_ctypes
 ```
 
-Plot a cell-type to show the effect of correction
+Plot a cell-type to show the effect of correction "Fibroblasts"
 ```{r}
-multi.de.res$`Endothelial cells-2`$scatter.plot
+multi.de.res$Fibroblasts$scatter.plot
 ```
+

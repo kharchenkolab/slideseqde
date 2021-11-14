@@ -8,13 +8,11 @@ call `convertSpatialObj2Pagoda` before calling this function}
 updateSpatialInfo(obj, anno)
 }
 \arguments{
+\item{obj}{an object containing the spatial spatial objects}
+
 \item{anno}{an R object containing the annotation file
 it assumes a specific format for now and
 TODO: we need to change this and make more generic}
-
-\item{cdl}{a list of SparseSpatial}
-
-\item{cdl.p2}{a list of pagoda2 objects made from `convertSpatialObj2Pagoda`}
 }
 \value{
 a modified pagoda object with the positions and

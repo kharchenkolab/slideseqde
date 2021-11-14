@@ -220,7 +220,7 @@ get.subset <- function(
     cnames <- ctype.emb.df %>%
       dplyr::filter(mindist > distance.from.boundary ) %>%
       rownames
-    t <- table(r$clusters$PCA$jcontext.L2[cnames]) %>%
+    t <- table(r$clusters$PCA$jcontext[cnames]) %>%
       data.frame %>%
       rename(cell.type=Var1) %>%
       dplyr::mutate(context = ifelse( grepl("_Non_Tumor",cell.type), "Non_Tumor", "Tumor" ) ) %>%
@@ -237,7 +237,7 @@ get.subset <- function(
     cnames <- ctype.emb.df %>%
       dplyr::filter((mindist > distance.from.boundary)&(mindist < distance.from.center) ) %>%
       rownames
-    t <- table(r$clusters$PCA$jcontext.L2[cnames]) %>%
+    t <- table(r$clusters$PCA$jcontext[cnames]) %>%
       data.frame %>%
       rename(cell.type=Var1) %>%
       dplyr::mutate(context = ifelse( grepl("_Non_Tumor",cell.type), "Non_Tumor", "Tumor" ) ) %>%
@@ -289,7 +289,7 @@ construct.subset.profile <- function(
   special.genes = NULL
   ){
   Var1 = cell.type = Non_Tumor = Tumor = NULL;
-  ad.mix.ctypes <- table(r$clusters$PCA$jcontext.L2[cnames]) %>%
+  ad.mix.ctypes <- table(r$clusters$PCA$jcontext[cnames]) %>%
     data.frame %>%
     rename(cell.type=Var1) %>%
     mutate(context = ifelse( grepl("_Non_Tumor",cell.type), "Non_Tumor", "Tumor" ) ) %>%
@@ -304,7 +304,7 @@ construct.subset.profile <- function(
     paste(ad.mix.ctypes,"Non_Tumor",sep="_")
   )
 
-  cname.anot <- r$clusters$PCA$jcontext.L2[cnames]
+  cname.anot <- r$clusters$PCA$jcontext[cnames]
   counts = r.raw$cm[colnames(r$counts),]
   counts = counts[rowSums(counts) > 50,]
   final.gene.names <- rownames(counts)
@@ -358,7 +358,7 @@ preparePseudoBulkProfile = function(
   p2 <- subset$barplot
 
   rprofile <- construct.subset.profile(r, r.raw, cnames, 10, special.genes)
-  ctype.emb.df$cell.type <- r$clusters$PCA$annot.L2[rownames(ctype.emb.df)]
+  ctype.emb.df$cell.type <- r$clusters$PCA$annot[rownames(ctype.emb.df)]
   list(rprofile=rprofile,
        ctype.emb.df = ctype.emb.df,
        dist=distance.from.boundary ,

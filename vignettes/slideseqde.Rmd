@@ -175,8 +175,8 @@ objs = convertSpatialObj2Pagoda(cdl)
 
 ## Assign RCTD annotations
 ```{r}
-saveRDS(annotation.RCTD.all, '~/Workplace/slide-seq-de/data/annotation/annotation_RCTD_all.rds')
 annotation.RCTD.all = do.call(c, annotation.RCTD)
+saveRDS(annotation.RCTD.all, '~/Workplace/slide-seq-de/data/annotation/annotation_RCTD_all.rds')
 objs = updateSpatialInfoCustom(objs, annotation.RCTD.all)
 #objs = updateSpatialInfo(objs, anno)
 ``` 
